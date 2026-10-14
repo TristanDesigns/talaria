@@ -19,6 +19,7 @@ export function TaskRow({ task, selected, onOpen, showProject, handle }: Props) 
   const s = useStore();
   const profiles = Object.values(s.profiles);
   const subs = subtasksOf(s.tasks, task.id);
+  const files = Object.values(s.attachments).filter((a) => a.task_id === task.id).length;
   const project = task.project_id ? s.projects[task.project_id] : null;
   return (
     <div className={"task-row" + (selected ? " is-selected" : "") + (task.completed_at ? " is-done" : "")}
@@ -30,6 +31,11 @@ export function TaskRow({ task, selected, onOpen, showProject, handle }: Props) 
       <div className="task-row-title">
         <EditableText value={task.title} placeholder="Write a task name"
           onSave={(title) => update("tasks", task.id, { title })} />
+        {files > 0 && (
+          <span className="meta" title="Files">
+            {files} <Icon name="clip" size={12} />
+          </span>
+        )}
         {subs.length > 0 && (
           <span className="meta" title="Subtasks">
             {subs.filter((x) => x.completed_at).length}/{subs.length} <Icon name="subtask" size={12} />

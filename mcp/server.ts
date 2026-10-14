@@ -12,10 +12,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { spawn } from "node:child_process";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { z } from "zod";
 
 declare const __SUPABASE_URL__: string;
@@ -272,6 +272,7 @@ const server = new McpServer(
       "Work is split into spaces (e.g. 'Sea of Grass', 'Caduceus'), each holding projects; projects have sections " +
       "(columns such as To do / Doing / Done) holding tasks. Refer to spaces, projects, sections and people by name; " +
       "tasks by the id returned from other tools. Dates are YYYY-MM-DD in the user's local time. " +
+      "Tasks can carry files (get_task lists them with download links; attach_file uploads one from this computer). " +
       "The first call may open the user's browser to sign in with Google. Nothing can be deleted through these tools.",
   },
 );
@@ -386,7 +387,7 @@ server.registerTool(
   "get_task",
   {
     title: "Get a task",
-    description: "Full details for one task, including its description, subtasks and comments.",
+    description: "Full details for one task, including its description, subtasks, files (with download links) and comments.",
     inputSchema: { task_id: z.string().describe("The task's id.") },
     annotations: { readOnlyHint: true },
   },
@@ -394,11 +395,16 @@ server.registerTool(
     await me();
     const [task] = await q(db.from("tasks").select("*").eq("id", task_id));
     if (!task) throw new Error(`No task with id ${task_id}.`);
-    const [subs, comments, profiles] = await Promise.all([
+    const [subs, comments, profiles, files] = await Promise.all([
       q(db.from("tasks").select("*").eq("parent_id", task_id).order("position")),
       q(db.from("comments").select("*").eq("task_id", task_id).order("created_at")),
       q(db.from("profiles").select("id,name")),
+      q(db.from("attachments").select("*").eq("task_id", task_id).order("created_at")).catch(() => [] as Row[]),
     ]);
+    // Links last an hour; ask again for fresh ones.
+    const links = files.length
+      ? (await db.storage.from("attachments").createSignedUrls(files.map((f) => f.path), 3600)).data ?? []
+      : [];
     const [described] = await describe([task]);
     return {
       ...described,
@@ -406,6 +412,14 @@ server.registerTool(
       created_at: task.created_at,
       completed_at: task.completed_at,
       subtasks: await describe(subs),
+      files: files.map((f, i) => ({
+        name: f.name,
+        size_bytes: f.size,
+        type: f.mime || null,
+        added_by: profiles.find((p) => p.id === f.uploaded_by)?.name ?? null,
+        added_at: f.created_at,
+        download_url: links[i]?.signedUrl ?? null,
+      })),
       comments: comments.map((c) => ({
         author: profiles.find((p) => p.id === c.author_id)?.name ?? "Someone",
         at: c.created_at,
@@ -557,6 +571,49 @@ server.registerTool(
     );
     await q(db.from("sections").insert(["To do", "Doing", "Done"].map((n, i) => ({ space_id: sp.id, project_id: p.id, name: n, position: (i + 1) * 1024 }))));
     return { created: { space: sp.name, project: p.name, sections: ["To do", "Doing", "Done"] } };
+  }),
+);
+
+const MAX_FILE_BYTES = 50 * 1024 * 1024; // Supabase free plan, per file
+const MIME: Record<string, string> = {
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
+  ".svg": "image/svg+xml", ".pdf": "application/pdf", ".mp4": "video/mp4", ".mov": "video/quicktime",
+  ".mp3": "audio/mpeg", ".wav": "audio/wav", ".txt": "text/plain", ".md": "text/markdown", ".json": "application/json",
+};
+
+server.registerTool(
+  "attach_file",
+  {
+    title: "Attach a file to a task",
+    description:
+      "Uploads a file from this computer (an image, a .blend, a PDF, audio…) and attaches it to a task, as you. " +
+      "Files can be up to 50 MB.",
+    inputSchema: {
+      task_id: z.string(),
+      path: z.string().describe("Absolute path of the file on this computer. ~ is allowed."),
+      name: z.string().optional().describe("Name to show in Talaria; defaults to the file's own name."),
+    },
+  },
+  tool(async ({ task_id, path, name }: { task_id: string; path: string; name?: string }) => {
+    const self = await me();
+    const full = path.startsWith("~") ? join(homedir(), path.slice(1)) : path;
+    const info = await stat(full).catch(() => null);
+    if (!info?.isFile()) throw new Error(`No file at ${full}.`);
+    if (info.size > MAX_FILE_BYTES)
+      throw new Error(`That file is ${(info.size / 1048576).toFixed(1)} MB; Talaria files can be up to 50 MB.`);
+    const [task] = await q(db.from("tasks").select("id,space_id,title").eq("id", task_id));
+    if (!task) throw new Error(`No task with id ${task_id}.`);
+    const shown = (name ?? basename(full)).trim();
+    const safe = shown.normalize("NFKD").replace(/[^\w.\-]+/g, "_").slice(-120) || "file";
+    const objectPath = `${task.space_id}/${task.id}/${crypto.randomUUID()}-${safe}`;
+    const type = MIME[extname(full).toLowerCase()] ?? "application/octet-stream";
+    const { error } = await db.storage.from("attachments").upload(objectPath, await readFile(full), { contentType: type });
+    if (error) throw new Error(`Upload failed: ${error.message}`);
+    await q(db.from("attachments").insert({
+      space_id: task.space_id, task_id: task.id, name: shown, path: objectPath, size: info.size,
+      mime: type === "application/octet-stream" ? "" : type, uploaded_by: self.id,
+    }));
+    return { attached: shown, to_task: task.title, size_bytes: info.size };
   }),
 );
 

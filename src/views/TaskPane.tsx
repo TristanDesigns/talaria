@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Attachments } from "../components/Attachments";
 import { AssigneePicker, Avatar, Check, DuePicker, EditableText, Icon, QuickAdd } from "../components/bits";
+import { uploadFiles } from "../lib/files";
 import { createTask, toggleComplete } from "../lib/actions";
 import { insert, loadComments, remove, update, useStore } from "../lib/store";
 import type { ID } from "../lib/types";
@@ -9,6 +11,8 @@ export function TaskPane({ taskId, onOpen, onClose }: { taskId: ID; onOpen: (id:
   const s = useStore();
   const task = s.tasks[taskId];
   const [comment, setComment] = useState("");
+  const [dropping, setDropping] = useState(false);
+  const [uploading, setUploading] = useState<string | null>(null);
 
   useEffect(() => {
     loadComments(taskId);
@@ -42,8 +46,32 @@ export function TaskPane({ taskId, onOpen, onClose }: { taskId: ID; onOpen: (id:
     setComment("");
   };
 
+  const hasFiles = (e: React.DragEvent) => e.dataTransfer.types.includes("Files");
+  const attach = (files: File[]) => files.length && uploadFiles(task, files, setUploading);
+
   return (
-    <aside className="pane" key={task.id}>
+    <aside className={"pane" + (dropping ? " is-dropping" : "")} key={task.id}
+      onDragOver={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setDropping(false)}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDropping(false);
+        attach([...e.dataTransfer.files]);
+      }}
+      onPaste={(e) => {
+        // Pasting a screenshot attaches it; pasting text behaves normally.
+        const files = [...e.clipboardData.files];
+        if (files.length) {
+          e.preventDefault();
+          attach(files);
+        }
+      }}>
+      {dropping && <div className="drop-hint">Drop to attach to this task</div>}
       <div className="pane-bar">
         <button type="button" className={"complete-btn" + (task.completed_at ? " is-done" : "")} onClick={() => toggleComplete(task)}>
           <Icon name="check" size={14} /> {task.completed_at ? "Completed" : "Mark complete"}
@@ -103,6 +131,9 @@ export function TaskPane({ taskId, onOpen, onClose }: { taskId: ID; onOpen: (id:
         <h3 className="pane-label">Description</h3>
         <EditableText className="notes" multiline value={task.notes} placeholder="What is this task about?"
           onSave={(notes) => update("tasks", task.id, { notes })} />
+
+        <h3 className="pane-label">Files</h3>
+        <Attachments task={task} pending={uploading} />
 
         <h3 className="pane-label">Subtasks {subs.length > 0 && <span className="count">{subs.filter((x) => x.completed_at).length}/{subs.length}</span>}</h3>
         <div className="subtasks">

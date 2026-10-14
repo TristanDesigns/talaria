@@ -16,7 +16,7 @@ export interface State extends Maps {
   error: string | null;
 }
 
-const empty = (): Maps => ({ spaces: {}, profiles: {}, projects: {}, sections: {}, tasks: {}, comments: {} });
+const empty = (): Maps => ({ spaces: {}, profiles: {}, projects: {}, sections: {}, tasks: {}, comments: {}, attachments: {} });
 
 let state: State = { ...empty(), me: null, loaded: false, error: null };
 const listeners = new Set<() => void>();
@@ -49,10 +49,10 @@ export function useStore(): State {
 
 export const getState = () => state;
 
-export function reportError(e: unknown) {
+export function reportError(e: unknown, prefix = "") {
   const msg = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : String(e);
   console.error(e);
-  set({ error: msg });
+  set({ error: prefix + msg });
 }
 
 export const clearError = () => set({ error: null });
@@ -66,12 +66,13 @@ const byId = <R extends { id: ID }>(rows: R[] | null) =>
 
 export async function loadAll() {
   const db = supabase();
-  const [spaces, profiles, projects, sections, tasks] = await Promise.all([
+  const [spaces, profiles, projects, sections, tasks, attachments] = await Promise.all([
     db.from("spaces").select("*"),
     db.from("profiles").select("*"),
     db.from("projects").select("*"),
     db.from("sections").select("*"),
     db.from("tasks").select("*"),
+    db.from("attachments").select("*"),
   ]);
   const err = spaces.error || profiles.error || projects.error || sections.error || tasks.error;
   if (err) throw err;
@@ -81,6 +82,8 @@ export async function loadAll() {
     projects: byId(projects.data),
     sections: byId(sections.data),
     tasks: byId(tasks.data),
+    // Older databases without the attachments table still load.
+    attachments: attachments.error ? {} : byId(attachments.data),
     loaded: true,
   });
 }
@@ -140,7 +143,7 @@ function send(write: () => Result, onError: () => void) {
     const { error } = await write();
     if (error) {
       onError();
-      reportError(error);
+      reportError(error, "Couldn’t save: ");
     }
   });
 }
@@ -190,8 +193,24 @@ export function remove(table: Exclude<Table, "spaces">, id: ID) {
       (t) => t.section_id === id && putRow("tasks", { ...t, section_id: null }),
     );
   }
+  // Files live in storage, which the database can't cascade into: collect the
+  // files of everything being deleted and remove them too.
+  const goneTasks = new Set(Object.keys(snapshot.tasks).filter((t) => !(t in state.tasks)));
+  if (table === "tasks") goneTasks.add(id);
+  const files = Object.values(state.attachments).filter((a) =>
+    table === "attachments" ? a.id === id : goneTasks.has(a.task_id),
+  );
+  files.forEach((a) => dropRow("attachments", a.id));
   dropRow(table, id);
-  send(() => supabase().from(table).delete().eq("id", id), () => set(snapshot));
+  send(async () => {
+    const result = await supabase().from(table).delete().eq("id", id);
+    // Only once the rows are really gone; a failed delete keeps its files.
+    if (!result.error && files.length && "storage" in supabase()) {
+      const { error } = await supabase().storage.from("attachments").remove(files.map((a) => a.path));
+      if (error) console.error(error);
+    }
+    return result;
+  }, () => set(snapshot));
 }
 
 // A position strictly between two neighbours (either may be missing).

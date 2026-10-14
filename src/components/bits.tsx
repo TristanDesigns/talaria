@@ -23,6 +23,8 @@ const PATHS: Record<string, string> = {
   drag: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
   inbox: "M4 13l2.5-8h11L20 13v6H4zM4 13h5l1 2h4l1-2h5",
   edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
+  clip: "M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17.2a1.7 1.7 0 01-2.4-2.4L15 7.1",
+  download: "M12 4v11M7 10l5 5 5-5M5 20h14",
 };
 
 export function Icon({ name, size = 16 }: { name: keyof typeof PATHS | string; size?: number }) {

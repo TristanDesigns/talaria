@@ -5,7 +5,8 @@ study group. Named for the winged sandals of Hermes.
 
 A desktop app (macOS + Linux) in the spirit of Asana: projects with **List** and
 **Board** views, sections, drag-and-drop, assignees, due dates, subtasks,
-comments, and a **My tasks** page grouped by when things are due. Changes sync
+comments, files (images, .blend, PDFs… up to 50 MB each on Supabase's free
+plan), and a **My tasks** page grouped by when things are due. Changes sync
 live between everyone in a space.
 
 Download: <https://seaofgrass.studio/talaria/>
@@ -30,8 +31,8 @@ only ever see the spaces they belong to.
 1. **Create a Supabase project** at <https://supabase.com> (free tier is plenty).
 2. **Run the schema.** Open `supabase/schema.sql`, replace the two example
    emails with yours and Bryce's, then paste it into *SQL Editor → New query →
-   Run*. Then run `supabase/002_profiles_avatars.sql` the same way (profile
-   photos).
+   Run*. Then run `supabase/002_profiles_avatars.sql` (profile photos) and
+   `supabase/003_attachments.sql` (files on tasks) the same way.
 3. **Auth settings** (*Authentication → Sign In / Providers → Email*): either turn
    off *Confirm email*, or leave it on and click the link in the email after
    signing up. Once you've both made accounts you can turn off *Allow new users
@@ -67,8 +68,9 @@ also add them as a Google test user (above).
 
 `mcp/` is a small MCP server that lets Claude read and update Talaria as you:
 list projects and tasks, see your tasks by due date, read a task with its
-subtasks and comments, create tasks and projects, assign / reschedule /
-complete / move tasks, and comment. It cannot delete anything.
+subtasks, files and comments, create tasks and projects, assign / reschedule /
+complete / move tasks, comment, and attach files from your computer. It cannot
+delete anything.
 
 The first time Claude uses it, your browser opens to sign in with Google (its
 own session, kept in `~/Library/Application Support/Talaria/` on macOS or

@@ -63,7 +63,19 @@ export interface Comment {
   created_at: string;
 }
 
-export type Table = "spaces" | "profiles" | "projects" | "sections" | "tasks" | "comments";
+export interface Attachment {
+  id: ID;
+  space_id: ID;
+  task_id: ID;
+  name: string;
+  path: string; // <space_id>/<task_id>/<uuid>-<name> in the "attachments" bucket
+  size: number;
+  mime: string;
+  uploaded_by: ID | null;
+  created_at: string;
+}
+
+export type Table = "spaces" | "profiles" | "projects" | "sections" | "tasks" | "comments" | "attachments";
 
 export interface Rows {
   spaces: Space;
@@ -72,4 +84,5 @@ export interface Rows {
   sections: Section;
   tasks: Task;
   comments: Comment;
+  attachments: Attachment;
 }

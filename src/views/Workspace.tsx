@@ -169,7 +169,7 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
 
       {s.error && (
         <div className="toast" role="alert">
-          <span>Couldn’t save: {s.error}</span>
+          <span>{s.error}</span>
           <button type="button" className="ghost tiny" onClick={clearError} aria-label="Dismiss"><Icon name="close" size={12} /></button>
         </div>
       )}

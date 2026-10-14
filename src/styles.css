@@ -401,6 +401,34 @@ input.list-add { margin: 4px 0 4px 30px; width: calc(100% - 30px); }
 .composer .primary { grid-column: 2; justify-self: end; }
 .pane-foot { font-size: 11px; margin-top: 28px; }
 
+/* ---------------------------------------------------------------- files */
+
+.pane { position: relative; }
+.pane.is-dropping .pane-body { opacity: 0.35; }
+.drop-hint {
+  position: absolute; inset: 60px 14px 14px; z-index: 5; display: grid; place-items: center;
+  border: 1.5px dashed var(--accent); border-radius: 10px; background: var(--accent-wash);
+  color: var(--accent); font-weight: 500; pointer-events: none;
+}
+.files { display: grid; gap: 6px; }
+.file {
+  display: flex; align-items: center; gap: 10px; padding: 6px; border: 1px solid var(--line-soft); border-radius: 8px;
+}
+.file:hover { border-color: var(--line); }
+.file.is-uploading { color: var(--ink-soft); animation: breathe 1.4s ease-in-out infinite; }
+.file-thumb {
+  flex: none; width: 44px; height: 44px; border-radius: 5px; overflow: hidden; display: grid; place-items: center;
+  background: var(--paper-2); color: var(--ink-soft);
+}
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.file-ext { font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+.file-main { flex: 1; min-width: 0; display: grid; text-align: left; }
+.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-meta { font-size: 11px; }
+.files-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.files-add .quick-add { width: auto; }
+.files-add .muted { font-size: 11px; }
+
 /* ---------------------------------------------------------------- dialog */
 
 .scrim {

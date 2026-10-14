@@ -3,34 +3,89 @@
   "name": "talaria",
   "display_name": "Talaria",
   "version": "0.0.0",
-  "description": "Read and update your Talaria tasks — the Sea of Grass task manager.",
-  "long_description": "Lets Claude see your projects and tasks in Talaria, create tasks and projects, assign and reschedule them, mark them done, and comment. The first time it's used, your browser opens to sign in with Google; Claude then acts as you and only sees the spaces you belong to. Nothing can be deleted through this extension.",
-  "author": { "name": "Sea of Grass", "url": "https://seaofgrass.studio/talaria/" },
+  "description": "Read and update your Talaria tasks \u2014 the Sea of Grass task manager.",
+  "long_description": "Lets Claude see your projects and tasks in Talaria, create tasks and projects, assign and reschedule them, mark them done, comment, and attach files. The first time it's used, your browser opens to sign in with Google; Claude then acts as you and only sees the spaces you belong to. Nothing can be deleted through this extension.",
+  "author": {
+    "name": "Sea of Grass",
+    "url": "https://seaofgrass.studio/talaria/"
+  },
   "homepage": "https://seaofgrass.studio/talaria/",
-  "repository": { "type": "git", "url": "https://github.com/TristanDesigns/talaria" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TristanDesigns/talaria"
+  },
   "icon": "icon.png",
   "server": {
     "type": "node",
     "entry_point": "server/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/server/index.js"],
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
       "env": {}
     }
   },
   "tools": [
-    { "name": "whoami", "description": "Your Talaria name, email and spaces." },
-    { "name": "list_projects", "description": "Projects with their sections and open-task counts." },
-    { "name": "list_tasks", "description": "Find tasks by project, space, section, assignee or due date." },
-    { "name": "my_tasks", "description": "Your open tasks, grouped by when they're due." },
-    { "name": "get_task", "description": "One task with its description, subtasks and comments." },
-    { "name": "create_task", "description": "Add a task or subtask." },
-    { "name": "update_task", "description": "Rename, reassign, reschedule, complete or move a task." },
-    { "name": "add_comment", "description": "Comment on a task as you." },
-    { "name": "create_project", "description": "Start a project with To do / Doing / Done." },
-    { "name": "sign_out", "description": "Forget this computer's Talaria sign-in for Claude." }
+    {
+      "name": "whoami",
+      "description": "Your Talaria name, email and spaces."
+    },
+    {
+      "name": "list_projects",
+      "description": "Projects with their sections and open-task counts."
+    },
+    {
+      "name": "list_tasks",
+      "description": "Find tasks by project, space, section, assignee or due date."
+    },
+    {
+      "name": "my_tasks",
+      "description": "Your open tasks, grouped by when they're due."
+    },
+    {
+      "name": "get_task",
+      "description": "One task with its description, subtasks, files and comments."
+    },
+    {
+      "name": "create_task",
+      "description": "Add a task or subtask."
+    },
+    {
+      "name": "update_task",
+      "description": "Rename, reassign, reschedule, complete or move a task."
+    },
+    {
+      "name": "add_comment",
+      "description": "Comment on a task as you."
+    },
+    {
+      "name": "create_project",
+      "description": "Start a project with To do / Doing / Done."
+    },
+    {
+      "name": "attach_file",
+      "description": "Attach a file from this computer to a task."
+    },
+    {
+      "name": "sign_out",
+      "description": "Forget this computer's Talaria sign-in for Claude."
+    }
   ],
-  "compatibility": { "platforms": ["darwin", "linux", "win32"], "runtimes": { "node": ">=18.0.0" } },
-  "keywords": ["tasks", "project management", "sea of grass"],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "keywords": [
+    "tasks",
+    "project management",
+    "sea of grass"
+  ],
   "license": "MIT"
 }

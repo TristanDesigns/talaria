@@ -249,6 +249,7 @@ function BoardColumn({ id, section, tasks, children }: {
 function Card({ task, selected, onOpen, ghost }: { task: Task; selected: boolean; onOpen: () => void; ghost?: boolean }) {
   const s = useStore();
   const subs = subtasksOf(s.tasks, task.id);
+  const files = Object.values(s.attachments).filter((a) => a.task_id === task.id).length;
   return (
     <div className={"card" + (selected ? " is-selected" : "") + (task.completed_at ? " is-done" : "") + (ghost ? " is-ghost" : "")}
       onClick={onOpen}>
@@ -261,6 +262,11 @@ function Card({ task, selected, onOpen, ghost }: { task: Task; selected: boolean
           onChange={(assignee_id) => update("tasks", task.id, { assignee_id })} />
         <DueBadge task={task} />
         <span className="spacer" />
+        {files > 0 && (
+          <span className="meta" title="Files">
+            {files} <Icon name="clip" size={12} />
+          </span>
+        )}
         {subs.length > 0 && (
           <span className="meta">
             {subs.filter((x) => x.completed_at).length}/{subs.length} <Icon name="subtask" size={12} />

@@ -62,6 +62,7 @@ const db: { [T in Table]: Row[] } = {
     task({ title: "Renew the domain", assignee_id: ME, due_on: day(9) }),
   ],
   comments: [],
+  attachments: [],
 };
 db.tasks.push(
   task({ project_id: "p1", parent_id: "t1", title: "Draft", assignee_id: ME, completed_at: iso(30) }),
