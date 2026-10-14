@@ -73,18 +73,61 @@ const db: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 // ---------------------------------------------------------------------------
-// Google sign-in
+// Sign-in: a small page on localhost offering Google or email + password.
+// The password goes straight from the browser to this process and on to
+// Supabase; it never passes through Claude.
 // ---------------------------------------------------------------------------
 
-const DONE_PAGE = `<!doctype html><meta charset="utf-8"><title>Talaria</title>
-<body style="margin:0;height:100vh;display:grid;place-items:center;background:#faf9f6;color:#141311;
-font:14px/1.7 Menlo,monospace;text-align:center"><div>
-<p style="letter-spacing:.14em;text-transform:uppercase;font-weight:500;margin:0">Talaria</p>
-<p style="margin:.4rem 0 0;color:rgba(20,19,17,.55)">Claude is connected. You can close this tab.</p></div></body>`;
+const esc = (t: string) => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+const page = (body: string) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talaria — connect Claude</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#faf9f6;color:#141311;font:14px/1.6 Menlo,monospace}
+  main{width:min(340px,90vw);display:grid;gap:14px}
+  h1{margin:0;font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+  p{margin:0;color:rgba(20,19,17,.6);font-size:12px}
+  a.google,button{display:block;width:100%;padding:9px;border-radius:6px;font:inherit;font-weight:500;text-align:center;cursor:pointer;text-decoration:none}
+  a.google{border:1px solid #d9d6cf;color:#141311;background:#faf9f6}
+  button{border:0;background:#141311;color:#faf9f6}
+  label{display:grid;gap:4px;font-size:12px;color:rgba(20,19,17,.6)}
+  input{font:inherit;padding:7px 8px;border:1px solid #d9d6cf;border-radius:6px;background:#faf9f6;color:#141311}
+  .or{display:flex;gap:10px;align-items:center;font-size:11px;color:rgba(20,19,17,.35)}
+  .or:before,.or:after{content:"";flex:1;border-top:1px solid #d9d6cf}
+  .err{color:#9a4a4a}
+</style><main>${body}</main>`;
+
+const signInPage = (nonce: string, error = "", email = "") => page(`
+  <h1>Talaria</h1>
+  <p>Sign in so Claude can work with your Talaria tasks — as you, seeing only your spaces.</p>
+  <a class="google" href="/google">Continue with Google</a>
+  <div class="or">or use email</div>
+  <form method="post" action="/password" style="display:grid;gap:10px">
+    <input type="hidden" name="nonce" value="${nonce}">
+    <label>Email<input name="email" type="email" required autofocus value="${esc(email)}"></label>
+    <label>Password<input name="password" type="password" required></label>
+    ${error ? `<p class="err">${esc(error)}</p>` : ""}
+    <button type="submit">Sign in</button>
+  </form>`);
+
+const DONE_PAGE = page(`<h1>Talaria</h1><p>Claude is connected. You can close this tab.</p>
+  <script>setTimeout(() => window.close(), 1500)</script>`);
 
 function openBrowser(url: string) {
   const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
   spawn(cmd, [url], { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
+}
+
+function readBody(req: import("node:http").IncomingMessage): Promise<URLSearchParams> {
+  return new Promise((resolve, reject) => {
+    let data = "";
+    req.on("data", (c) => {
+      data += c;
+      if (data.length > 10_000) req.destroy();
+    });
+    req.on("end", () => resolve(new URLSearchParams(data)));
+    req.on("error", reject);
+  });
 }
 
 let signingIn: Promise<void> | null = null;
@@ -106,33 +149,59 @@ async function signIn(): Promise<void> {
     }
     if (!port) throw new Error(`Couldn't start sign-in: ports ${LOOPBACK_PORTS.join(", ")} are all busy.`);
 
+    // Only a form this page served can sign in (stops other sites posting to it).
+    const nonce = crypto.randomUUID();
+    const html = (res: import("node:http").ServerResponse, body: string, status = 200) =>
+      res.writeHead(status, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }).end(body);
+
     try {
-      const code = new Promise<string>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("Sign-in timed out after 3 minutes. Ask again to retry.")), 180_000);
-        server.on("request", (req, res) => {
-          const url = new URL(req.url ?? "/", `http://localhost:${port}`);
-          const c = url.searchParams.get("code");
-          const err = url.searchParams.get("error_description");
-          if (!c && !err) {
-            res.writeHead(404).end();
-            return;
-          }
-          res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(c ? DONE_PAGE : `Sign-in failed: ${err}`);
+        const done = (res: import("node:http").ServerResponse) => {
+          html(res, DONE_PAGE);
           clearTimeout(timer);
-          c ? resolve(c) : reject(new Error(`Google sign-in failed: ${err}`));
+          resolve();
+        };
+        server.on("request", async (req, res) => {
+          try {
+            const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+            const code = url.searchParams.get("code");
+            const oauthError = url.searchParams.get("error_description");
+
+            if (req.method === "GET" && url.pathname === "/" && code) {
+              const { error } = await db.auth.exchangeCodeForSession(code);
+              return error ? html(res, signInPage(nonce, error.message)) : done(res);
+            }
+            if (req.method === "GET" && url.pathname === "/" && oauthError) return html(res, signInPage(nonce, oauthError));
+            if (req.method === "GET" && url.pathname === "/") return html(res, signInPage(nonce));
+            if (req.method === "GET" && url.pathname === "/google") {
+              const { data, error } = await db.auth.signInWithOAuth({
+                provider: "google",
+                options: { redirectTo: `http://localhost:${port}`, skipBrowserRedirect: true, queryParams: { prompt: "select_account" } },
+              });
+              if (error || !data.url) return html(res, signInPage(nonce, error?.message ?? "Couldn't start Google sign-in."));
+              return res.writeHead(302, { location: data.url }).end();
+            }
+            if (req.method === "POST" && url.pathname === "/password") {
+              const form = await readBody(req);
+              if (form.get("nonce") !== nonce) return html(res, signInPage(nonce, "That form has expired; try again."), 403);
+              const email = (form.get("email") ?? "").trim();
+              const { error } = await db.auth.signInWithPassword({ email, password: form.get("password") ?? "" });
+              if (!error) return done(res);
+              const msg = /not confirmed/i.test(error.message)
+                ? "Your email isn't confirmed yet. Click the link in the confirmation email, or ask Tristan to approve your account."
+                : /invalid/i.test(error.message) ? "That email and password don't match." : error.message;
+              return html(res, signInPage(nonce, msg, email));
+            }
+            res.writeHead(404).end();
+          } catch (e) {
+            html(res, signInPage(nonce, e instanceof Error ? e.message : String(e)), 500);
+          }
         });
+        const url = `http://localhost:${port}/`;
+        console.error(`[talaria] Opening browser to sign in: ${url}`);
+        if (!process.env.TALARIA_NO_BROWSER) openBrowser(url); // set in tests
       });
-
-      const { data, error } = await db.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `http://localhost:${port}`, skipBrowserRedirect: true, queryParams: { prompt: "select_account" } },
-      });
-      if (error || !data.url) throw error ?? new Error("Couldn't start Google sign-in.");
-      console.error(`[talaria] Opening browser for Google sign-in: ${data.url}`);
-      openBrowser(data.url);
-
-      const { error: exErr } = await db.auth.exchangeCodeForSession(await code);
-      if (exErr) throw exErr;
     } finally {
       server.close();
     }
@@ -273,7 +342,7 @@ const server = new McpServer(
       "(columns such as To do / Doing / Done) holding tasks. Refer to spaces, projects, sections and people by name; " +
       "tasks by the id returned from other tools. Dates are YYYY-MM-DD in the user's local time. " +
       "Tasks can carry files (get_task lists them with download links; attach_file uploads one from this computer). " +
-      "The first call may open the user's browser to sign in with Google. Nothing can be deleted through these tools.",
+      "The first call may open the user's browser to sign in (Google, or email and password). Nothing can be deleted through these tools.",
   },
 );
 

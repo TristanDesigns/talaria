@@ -63,11 +63,28 @@ export function Auth() {
     const { data, error } =
       mode === "in"
         ? await auth.signInWithPassword({ email, password })
-        : await auth.signUp({ email, password, options: { data: { name: name.trim() } } });
+        : await auth.signUp({
+            email,
+            password,
+            // The confirmation link lands on the download page, which says what to do next.
+            options: { data: { name: name.trim() }, emailRedirectTo: "https://seaofgrass.studio/talaria/?confirmed=1" },
+          });
     setBusy(false);
-    if (error) return setMsg({ text: error.message });
-    if (mode === "up" && !data.session)
-      setMsg({ ok: true, text: "Account created. Check your email for a confirmation link, then sign in here." });
+    if (error)
+      return setMsg({
+        text: /not confirmed/i.test(error.message)
+          ? "Your email isn’t confirmed yet. Click the link in the confirmation email, or ask Tristan to approve your account."
+          : /invalid login/i.test(error.message)
+            ? "That email and password don’t match."
+            : error.message,
+      });
+    if (mode === "up" && !data.session) {
+      setMode("in");
+      setMsg({
+        ok: true,
+        text: "Account created. Check your email for a confirmation link, then come back and sign in here. No email after a few minutes? Ask Tristan to approve your account.",
+      });
+    }
   };
 
   const google = async () => {

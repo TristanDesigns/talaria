@@ -72,8 +72,8 @@ subtasks, files and comments, create tasks and projects, assign / reschedule /
 complete / move tasks, comment, and attach files from your computer. It cannot
 delete anything.
 
-The first time Claude uses it, your browser opens to sign in with Google (its
-own session, kept in `~/Library/Application Support/Talaria/` on macOS or
+The first time Claude uses it, your browser opens a small sign-in page — Google,
+or email and password (its own session, kept in `~/Library/Application Support/Talaria/` on macOS or
 `~/.config/talaria/` on Linux), so Claude only sees the spaces you belong to.
 It catches the sign-in on `http://localhost:17324`–`17326`, which must be in
 Supabase's Redirect URLs.
