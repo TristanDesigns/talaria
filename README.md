@@ -30,7 +30,8 @@ only ever see the spaces they belong to.
 1. **Create a Supabase project** at <https://supabase.com> (free tier is plenty).
 2. **Run the schema.** Open `supabase/schema.sql`, replace the two example
    emails with yours and Bryce's, then paste it into *SQL Editor → New query →
-   Run*.
+   Run*. Then run `supabase/002_profiles_avatars.sql` the same way (profile
+   photos).
 3. **Auth settings** (*Authentication → Sign In / Providers → Email*): either turn
    off *Confirm email*, or leave it on and click the link in the email after
    signing up. Once you've both made accounts you can turn off *Allow new users
@@ -61,6 +62,28 @@ select id, 'them@example.com' from public.spaces where slug = 'caduceus';
 
 They sign in (Google or email) and see only Caduceus. For Google sign-in,
 also add them as a Google test user (above).
+
+## Using Talaria from Claude
+
+`mcp/` is a small MCP server that lets Claude read and update Talaria as you:
+list projects and tasks, see your tasks by due date, read a task with its
+subtasks and comments, create tasks and projects, assign / reschedule /
+complete / move tasks, and comment. It cannot delete anything.
+
+The first time Claude uses it, your browser opens to sign in with Google (its
+own session, kept in `~/Library/Application Support/Talaria/` on macOS or
+`~/.config/talaria/` on Linux), so Claude only sees the spaces you belong to.
+It catches the sign-in on `http://localhost:17324`–`17326`, which must be in
+Supabase's Redirect URLs.
+
+- **Claude desktop app:** download `talaria.mcpb` from the latest release and
+  open it — Claude shows an *Install* button.
+- **Claude Code:** build it once, then add it:
+
+  ```bash
+  npm run mcp:build
+  claude mcp add --scope user talaria -- node "$PWD/mcp/bundle/server/index.js"
+  ```
 
 ## Development
 

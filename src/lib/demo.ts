@@ -29,8 +29,8 @@ const db: { [T in Table]: Row[] } = {
     { id: CAD, slug: "caduceus", name: "Caduceus", position: 2, created_at: iso(9999) },
   ],
   profiles: [
-    { id: ME, name: "Tristan", email: "tristan@example.com", color: "#6b7f5e", created_at: iso(9999) },
-    { id: BRYCE, name: "Bryce", email: "bryce@example.com", color: "#4d6a86", created_at: iso(9999) },
+    { id: ME, name: "Tristan", email: "tristan@example.com", color: "#6b7f5e", avatar_url: null, created_at: iso(9999) },
+    { id: BRYCE, name: "Bryce", email: "bryce@example.com", color: "#4d6a86", avatar_url: null, created_at: iso(9999) },
   ],
   projects: [
     { id: "p1", space_id: SOG, name: "Studies index", color: "#6b7f5e", position: 1024, archived: false, created_by: ME, created_at: iso(5000) },

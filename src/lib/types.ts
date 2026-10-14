@@ -13,6 +13,7 @@ export interface Profile {
   name: string;
   email: string;
   color: string;
+  avatar_url: string | null;
   created_at: string;
 }
 

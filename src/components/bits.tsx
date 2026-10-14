@@ -46,8 +46,17 @@ export function Avatar({ profile, size = 22 }: { profile?: Profile | null; size?
     <span className="avatar" title={profile.name}
       style={{ width: size, height: size, background: profile.color, fontSize: size * 0.4 }}>
       {initials(profile.name)}
+      {profile.avatar_url && <AvatarImage src={profile.avatar_url} />}
     </span>
   );
+}
+
+// Laid over the initials, so a photo that fails to load just disappears.
+function AvatarImage({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  if (failed) return null;
+  return <img src={src} alt="" referrerPolicy="no-referrer" draggable={false} onError={() => setFailed(true)} />;
 }
 
 export function Check({ done, onToggle, size = 18 }: { done: boolean; onToggle: () => void; size?: number }) {

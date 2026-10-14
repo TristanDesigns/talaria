@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import type { ID } from "../lib/types";
 import { byPosition } from "../lib/util";
 import { MyTasks } from "./MyTasks";
+import { ProfileDialog } from "./ProfileDialog";
 import { ProjectView, type Layout } from "./ProjectView";
 import { TaskPane } from "./TaskPane";
 
@@ -32,6 +33,7 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
   const s = useStore();
   const [route, setRouteState] = useState<Route>(loadRoute);
   const [selected, setSelected] = useState<ID | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const setRoute = (patch: Partial<Route>) =>
     setRouteState((r) => {
@@ -123,8 +125,10 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
         </div>
 
         <div className="sidebar-foot">
-          <Avatar profile={meProfile} size={24} />
-          <span className="nav-label">{meProfile?.name ?? email}</span>
+          <button type="button" className="me-btn" onClick={() => setProfileOpen(true)} title="Profile">
+            <Avatar profile={meProfile} size={24} />
+            <span className="nav-label">{meProfile?.name ?? email}</span>
+          </button>
           <button type="button" className="ghost" title="Sign out"
             onClick={() => (resetStore(), supabase().auth.signOut())}>
             <Icon name="logout" size={15} />
@@ -142,6 +146,8 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
       </main>
 
       {selected && <TaskPane taskId={selected} onOpen={setSelected} onClose={() => setSelected(null)} />}
+
+      {profileOpen && <ProfileDialog onClose={() => setProfileOpen(false)} />}
 
       {s.error && (
         <div className="toast" role="alert">
