@@ -1,6 +1,6 @@
 [package]
 name = "talaria"
-version = "0.2.0"
+version = "0.2.1"
 description = "Talaria — task management for Sea of Grass"
 authors = ["Sea of Grass"]
 edition = "2021"

@@ -239,6 +239,9 @@ select:focus, input:focus { border-color: var(--ink-soft); }
   padding: 4px; display: grid; gap: 1px;
 }
 .menu-left { left: 0; }
+.menu-floating { position: fixed; top: auto; }
+.nav-item.is-renaming { background: var(--paper); box-shadow: 0 0 0 1px var(--ink-soft); padding: 3px 8px; }
+.nav-item.is-renaming input.rename-input { flex: 1; min-width: 0; border: 0; padding: 3px 0; background: none; outline: none; }
 .menu-right { right: 0; }
 .menu-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; text-align: left; white-space: nowrap;

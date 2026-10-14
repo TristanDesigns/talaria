@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar, Icon, QuickAdd } from "../components/bits";
 import { Mark } from "../components/Mark";
 import { createProject } from "../lib/actions";
-import { clearError, resetStore, startSync, stopSync, useStore } from "../lib/store";
+import { clearError, remove, resetStore, startSync, stopSync, update, useStore } from "../lib/store";
 import { supabase } from "../lib/supabase";
-import type { ID } from "../lib/types";
-import { byPosition } from "../lib/util";
+import type { ID, Project } from "../lib/types";
+import { byPosition, PROJECT_COLORS } from "../lib/util";
 import { MyTasks } from "./MyTasks";
 import { ProfileDialog } from "./ProfileDialog";
 import { ProjectView, type Layout } from "./ProjectView";
@@ -34,6 +34,8 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
   const [route, setRouteState] = useState<Route>(loadRoute);
   const [selected, setSelected] = useState<ID | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [renaming, setRenaming] = useState<ID | null>(null);
+  const [menu, setMenu] = useState<{ id: ID; x: number; y: number } | null>(null);
 
   const setRoute = (patch: Partial<Route>) =>
     setRouteState((r) => {
@@ -114,12 +116,22 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
 
         <div className="nav-head">Projects</div>
         <div className="nav-projects">
-          {projects.map((p) => (
-            <button key={p.id} type="button" className={"nav-item" + (project?.id === p.id ? " is-on" : "")}
-              onClick={() => go({ page: p.id })}>
-              <i className="project-dot" style={{ background: p.color }} /> <span className="nav-label">{p.name}</span>
-            </button>
-          ))}
+          {projects.map((p) =>
+            renaming === p.id ? (
+              <RenameField key={p.id} project={p} onDone={() => setRenaming(null)} />
+            ) : (
+              <button key={p.id} type="button" className={"nav-item" + (project?.id === p.id ? " is-on" : "")}
+                title="Double-click to rename · right-click for more"
+                onClick={() => go({ page: p.id })}
+                onDoubleClick={() => setRenaming(p.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ id: p.id, x: e.clientX, y: e.clientY });
+                }}>
+                <i className="project-dot" style={{ background: p.color }} /> <span className="nav-label">{p.name}</span>
+              </button>
+            ),
+          )}
           <QuickAdd placeholder="New project" className="nav-add"
             onAdd={(name) => go({ page: createProject(space.id, name).id })} />
         </div>
@@ -149,12 +161,84 @@ export function Workspace({ me, email }: { me: ID; email: string }) {
 
       {profileOpen && <ProfileDialog onClose={() => setProfileOpen(false)} />}
 
+      {menu && s.projects[menu.id] && (
+        <ProjectMenu project={s.projects[menu.id]} x={menu.x} y={menu.y} onClose={() => setMenu(null)}
+          onRename={() => setRenaming(menu.id)}
+          onDeleted={() => project?.id === menu.id && go({ page: "my" })} />
+      )}
+
       {s.error && (
         <div className="toast" role="alert">
           <span>Couldn’t save: {s.error}</span>
           <button type="button" className="ghost tiny" onClick={clearError} aria-label="Dismiss"><Icon name="close" size={12} /></button>
         </div>
       )}
+    </div>
+  );
+}
+
+// Inline rename in the sidebar: Enter saves, Esc cancels.
+function RenameField({ project, onDone }: { project: Project; onDone: () => void }) {
+  const cancelled = useRef(false);
+  return (
+    <div className="nav-item is-renaming">
+      <i className="project-dot" style={{ background: project.color }} />
+      <input className="rename-input" autoFocus defaultValue={project.name} aria-label="Project name"
+        onFocus={(e) => e.currentTarget.select()}
+        onBlur={(e) => {
+          const v = e.currentTarget.value.trim();
+          if (!cancelled.current && v && v !== project.name) update("projects", project.id, { name: v });
+          onDone();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            cancelled.current = true;
+            e.currentTarget.blur();
+          }
+        }} />
+    </div>
+  );
+}
+
+// Right-click menu for a project in the sidebar.
+function ProjectMenu({ project, x, y, onClose, onRename, onDeleted }: {
+  project: Project; x: number; y: number; onClose: () => void; onRename: () => void; onDeleted: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const away = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && onClose();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [onClose]);
+  // Keep the menu inside the window.
+  const left = Math.min(x, window.innerWidth - 210);
+  const top = Math.min(y, window.innerHeight - 150);
+  return (
+    <div ref={ref} className="menu menu-floating" style={{ left, top }} role="menu">
+      <button type="button" className="menu-item" onClick={() => (onClose(), onRename())}>
+        <Icon name="edit" size={14} /> Rename
+      </button>
+      <div className="menu-swatches">
+        {PROJECT_COLORS.map((c) => (
+          <button key={c} type="button" className="swatch" style={{ background: c }} aria-label={"Colour " + c}
+            onClick={() => (update("projects", project.id, { color: c }), onClose())} />
+        ))}
+      </div>
+      <button type="button" className="menu-item danger" onClick={() => {
+        onClose();
+        if (confirm(`Delete “${project.name}” and all of its tasks?`)) {
+          remove("projects", project.id);
+          onDeleted();
+        }
+      }}>
+        <Icon name="trash" size={14} /> Delete project
+      </button>
     </div>
   );
 }

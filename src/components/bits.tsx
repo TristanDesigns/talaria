@@ -22,6 +22,7 @@ const PATHS: Record<string, string> = {
   comment: "M4 5h16v11H9l-5 4z",
   drag: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
   inbox: "M4 13l2.5-8h11L20 13v6H4zM4 13h5l1 2h4l1-2h5",
+  edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
 };
 
 export function Icon({ name, size = 16 }: { name: keyof typeof PATHS | string; size?: number }) {
@@ -83,8 +84,10 @@ export function DueBadge({ task }: { task: Pick<Task, "due_on" | "completed_at">
 //   wrap       wraps and grows, Enter still commits (task titles in the pane)
 //   multiline  free text, ⌘↵ commits (descriptions)
 export function EditableText({
-  value, onSave, className, placeholder, multiline = false, wrap = false, fit = false, autoFocus = false,
+  value, onSave, className, placeholder, multiline = false, wrap = false, fit = false, autoFocus = false, id, title,
 }: {
+  id?: string;
+  title?: string;
   value: string;
   onSave: (v: string) => void;
   className?: string;
@@ -135,6 +138,8 @@ export function EditableText({
     }
   };
   const common = {
+    id,
+    title,
     className: "editable " + (className ?? ""),
     value: draft,
     placeholder,

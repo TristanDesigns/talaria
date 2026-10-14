@@ -86,13 +86,21 @@ export function ProjectView({ project, layout, onLayout, selectedId, onOpen, onD
     <div className="view">
       <header className="view-head" data-tauri-drag-region>
         <span className="project-dot" style={{ background: project.color }} />
-        <EditableText className="view-title" value={project.name}
+        <EditableText id="project-title" className="view-title" value={project.name} title="Click to rename"
           onSave={(name) => update("projects", project.id, { name: name || "Untitled project" })} />
         <Menu align="right" trigger={(t) => (
           <button type="button" className="ghost" onClick={t} aria-label="Project options"><Icon name="more" /></button>
         )}>
           {(close) => (
             <>
+              <button type="button" className="menu-item" onClick={() => {
+                close();
+                const el = document.getElementById("project-title") as HTMLInputElement | null;
+                el?.focus();
+                el?.select();
+              }}>
+                <Icon name="edit" size={14} /> Rename project
+              </button>
               <div className="menu-swatches">
                 {PROJECT_COLORS.map((c) => (
                   <button key={c} type="button" className="swatch" style={{ background: c }} aria-label={"Colour " + c}
