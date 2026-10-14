@@ -78,7 +78,11 @@ Supabase's Redirect URLs.
 
 - **Claude desktop app:** download `talaria.mcpb` from the latest release and
   open it — Claude shows an *Install* button.
-- **Claude Code:** build it once, then add it:
+- **Claude Code, the easy way:** paste the prompt in
+  [`docs/claude-code-setup-prompt.md`](docs/claude-code-setup-prompt.md) into
+  a new Claude Code session. It installs the app and the connector, registers
+  the connector, and sets up a `~/Sea of Grass Projects` workspace.
+- **Claude Code, by hand:** build it once, then add it:
 
   ```bash
   npm run mcp:build
